@@ -4,7 +4,9 @@
 
 import streamlit as st
 import pandas as pd
+import numpy as np
 import joblib
+import datetime
 
 # Load the saved model
 model = joblib.load("electricity_model.pkl")
@@ -59,14 +61,33 @@ diffuse_flows = st.number_input(
 
 st.markdown("---")
 
+# Date/time inputs (the model uses these to capture daily/weekly usage patterns)
+st.subheader("Enter Date & Time")
+
+pred_date = st.date_input("Date", value=datetime.date(2017, 6, 15))
+pred_time = st.time_input("Time", value=datetime.time(18, 0))
+
+st.markdown("---")
+
 # Predict button
 if st.button("Predict Consumption"):
 
+    # Derive the same time-based features used during training
+    hour = pred_time.hour
+    minute = pred_time.minute
+    day_of_week = pred_date.weekday()
+    month = pred_date.month
+    hour_sin = np.sin(2 * np.pi * hour / 24)
+    hour_cos = np.cos(2 * np.pi * hour / 24)
+
     # Create a DataFrame with the user's input values
     input_data = pd.DataFrame(
-        [[temperature, humidity, wind_speed, general_diffuse_flows, diffuse_flows]],
+        [[temperature, humidity, wind_speed, general_diffuse_flows, diffuse_flows,
+          hour, minute, day_of_week, month, hour_sin, hour_cos]],
         columns=["Temperature", "Humidity", "WindSpeed",
-                 "GeneralDiffuseFlows", "DiffuseFlows"]
+                 "GeneralDiffuseFlows", "DiffuseFlows",
+                 "Hour", "Minute", "DayOfWeek", "Month",
+                 "HourSin", "HourCos"]
     )
 
     # Make prediction using the loaded model
@@ -74,3 +95,4 @@ if st.button("Predict Consumption"):
 
     # Display the result
     st.success(f"Predicted Zone 1 Power Consumption:  {round(prediction[0], 2)} watts")
+
