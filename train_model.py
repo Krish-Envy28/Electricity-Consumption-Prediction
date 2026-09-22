@@ -14,14 +14,28 @@ df = pd.read_csv("powerconsumption.csv")
 print("Dataset loaded successfully!")
 print("Total rows:", len(df))
 
-# STEP 2: Select input features and target variable
+# STEP 2: Feature engineering - extract time signals from Datetime
+# Power consumption depends heavily on time of day / day of week, not just
+# weather, so we pull those signals out instead of discarding the column.
+df["Datetime"] = pd.to_datetime(df["Datetime"])
+df["Hour"] = df["Datetime"].dt.hour
+df["Minute"] = df["Datetime"].dt.minute
+df["DayOfWeek"] = df["Datetime"].dt.dayofweek
+df["Month"] = df["Datetime"].dt.month
+# Cyclical encoding so hour 23 and hour 0 are recognised as close together
+df["HourSin"] = np.sin(2 * np.pi * df["Hour"] / 24)
+df["HourCos"] = np.cos(2 * np.pi * df["Hour"] / 24)
+
+# STEP 3: Select input features and target variable
 input_features = ["Temperature", "Humidity", "WindSpeed",
-                  "GeneralDiffuseFlows", "DiffuseFlows"]
+                  "GeneralDiffuseFlows", "DiffuseFlows",
+                  "Hour", "Minute", "DayOfWeek", "Month",
+                  "HourSin", "HourCos"]
 
 X = df[input_features]
 y = df["PowerConsumption_Zone1"]
 
-# STEP 3: Split into 80% training and 20% testing
+# STEP 4: Split into 80% training and 20% testing
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42
 )
@@ -29,16 +43,16 @@ X_train, X_test, y_train, y_test = train_test_split(
 print("\nTraining samples:", len(X_train))
 print("Testing samples :", len(X_test))
 
-# STEP 4: Train the Random Forest model
-model = RandomForestRegressor(n_estimators=100, random_state=42)
+# STEP 5: Train the Random Forest model
+model = RandomForestRegressor(n_estimators=200, random_state=42, n_jobs=-1)
 print("\nTraining the model... (this may take a moment)")
 model.fit(X_train, y_train)
 print("Training complete!")
 
-# STEP 5: Make predictions on test data
+# STEP 6: Make predictions on test data
 y_pred = model.predict(X_test)
 
-# STEP 6: Evaluate the model
+# STEP 7: Evaluate the model
 mae  = mean_absolute_error(y_test, y_pred)
 mse  = mean_squared_error(y_test, y_pred)
 rmse = np.sqrt(mse)
@@ -53,7 +67,8 @@ print(f"  RMSE : {round(rmse, 2)}")
 print(f"  R2   : {round(r2, 4)}")
 print("-------------------------------------")
 
-# STEP 7: Save the trained model to a file
+# STEP 8: Save the trained model to a file
 joblib.dump(model, "electricity_model.pkl")
 print("\nModel saved as electricity_model.pkl")
 print("You can now run: python -m streamlit run app.py")
+
